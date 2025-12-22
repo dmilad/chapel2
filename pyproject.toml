@@ -1,0 +1,19 @@
+[project]
+name = "chapel2"
+version = "0.1.0"
+description = "CadQuery project for 3D modeling with Jupyter visualization"
+authors = [
+    {name = "Milad"}
+]
+readme = "README.md"
+requires-python = "^3.12"
+dependencies = [
+    "cadquery (>=2.6.1,<3.0.0)",
+    "jupyterlab (>=4.4.0,<4.5.0)",
+    "jupyter-cadquery (>=4.0.2,<5.0.0)"
+]
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
