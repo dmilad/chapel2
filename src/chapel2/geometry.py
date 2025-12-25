@@ -44,6 +44,22 @@ def normalize(a: Point3D) -> Point3D:
     return scale(a, 1.0/l)
 
 
+def project_radially(point: Point3D, distance: float, center: Point3D) -> Point3D:
+    """
+    Project a point radially outward from the dome center by a given distance.
+    
+    Args:
+        point: The point to project
+        distance: How far to project outward (positive = away from center)
+        center: The dome center point
+    
+    Returns:
+        The projected point
+    """
+    radial = normalize(sub(point, center))
+    return add(point, scale(radial, distance))
+
+
 def create_icosahedron() -> Tuple[List[Point3D], List[Face]]:
     """
     Create the 12 vertices and 20 faces of a unit icosahedron.
@@ -837,4 +853,3 @@ def format_assembly_guide_text(guide: Dict[str, any],
     lines.append("=" * 70)
 
     return "\n".join(lines)
-
