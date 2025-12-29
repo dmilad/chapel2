@@ -165,11 +165,18 @@ where L is a characteristic length depending on the triangle geometry.
 
 ## Design Options
 
-### Option 1: Fixed Width + Hub Connectors
+### Option 1: Fixed Width + Hub Connectors (IMPLEMENTED)
 
 - Use uniform strut width across the dome
 - Accept that inner edges won't meet perfectly
 - Fill gaps with hub connectors (complex 3D shapes)
+
+**Current Implementation:**
+- **Strut positioning**: Struts are centered on the geodesic edge (vertex position), with half the depth extending outward from the sphere surface and half extending inward
+- **Hub styles available**:
+  1. **Convex Hull** (baseline) - Wraps all strut end corners in a convex hull
+  2. **Tapered Triangular Prism** - Flat triangular inner face in tangent plane, tapered to outer triangle. Hub is centered on vertex, matching strut positioning
+  3. **Cylindrical Core** - Simple cylinder with miter-cut struts meeting it tangentially
 
 **Pros:** Simpler struts (all same width)
 **Cons:** Complex hub geometry, many unique hub shapes
@@ -197,7 +204,44 @@ where L is a characteristic length depending on the triangle geometry.
 **Pros:** Clean inner surface, simpler connectors
 **Cons:** Each strut has unique dimensions, more complex cutting
 
-### Option 3: Flat Gusset Plates
+### Option 2: Tapered Triangular Prism Hub (IMPLEMENTED)
+
+**Key Insight:** All cuboid strut inner faces are perpendicular to the radial direction at the vertex, meaning they all lie parallel to the tangent plane. The inner edges of the 3 struts meeting at a vertex form a triangle in this plane.
+
+**Geometry:**
+- **Inner face**: Flat triangle in the tangent plane (clean interior aesthetics)
+- **Outer face**: Triangle offset along radial (may differ in size/shape due to strut angle variations)
+- **Side faces**: Angled planes connecting corresponding edges of inner and outer triangles
+- **Positioning**: Hub is centered on vertex, extending `half_depth` outward and `half_depth` inward, matching strut positioning
+
+**Pros:** 
+- Clean flat inner surface for aesthetics
+- Simpler strut cuts (perpendicular only)
+- Hub shape is well-defined (tapered prism)
+
+**Cons:** 
+- Many unique hub shapes (one for each unique angle configuration)
+- Hub shapes are irregular polyhedra (require 3D printing or CNC)
+
+### Option 3: Cylindrical Core + Miter-Cut Struts (IMPLEMENTED)
+
+**Key Insight:** Cut each strut end at a compound miter angle so the end face lies in a radial plane (passes through the vertex center along the radial direction). This makes all 3 strut end faces "pie slice" toward the vertex, allowing a simple cylindrical core.
+
+**Geometry:**
+- **Strut ends**: Cut at compound miter so end face is a radial plane
+- **Hub core**: Cylinder (or tapered cylinder) centered on vertex, axis along radial
+- **Connection**: Strut end faces meet the cylindrical surface tangentially
+
+**Pros:**
+- Only 2 unique hub shapes (cylinders are easy to manufacture)
+- Hubs can be turned on a lathe or 3D printed easily
+- Simple hub geometry
+
+**Cons:**
+- More unique strut types (length + two angle combinations)
+- Compound miter cuts require CNC or careful jig setup
+
+### Option 4: Flat Gusset Plates
 
 - Use uniform cuboid struts
 - Connect with flat triangular plates on inner and outer surfaces
@@ -214,7 +258,7 @@ where L is a characteristic length depending on the triangle geometry.
 **Pros:** Simple 2D plates (easy CNC), uniform struts
 **Cons:** Visible plates, requires through-bolts
 
-### Option 4: Return to Wedged Struts
+### Option 5: Return to Wedged Struts
 
 - Wedged struts naturally meet at vertices
 - No hub needed
@@ -230,9 +274,27 @@ where L is a characteristic length depending on the triangle geometry.
 | Approach | Strut Shape | Hub/Connector | Manufacturability |
 |----------|-------------|---------------|-------------------|
 | Wedged struts | Tapered (radial faces) | None needed | Moderate |
-| Cuboid + complex hub | Uniform rectangle | Complex 3D polyhedra | Difficult |
+| Cuboid + Tapered Prism Hub | Uniform rectangle | Tapered triangular prism | Moderate (3D print/CNC) |
+| Cuboid + Cylindrical Core | Miter-cut rectangle | Simple cylinder | Easy (lathe/3D print) |
+| Cuboid + Convex Hull Hub | Uniform rectangle | Complex 3D polyhedra | Difficult |
 | Tapered cuboid | Tapered rectangle | Simple outer caps | Moderate |
 | Cuboid + gussets | Uniform rectangle | Flat plates | Easy |
+
+## Implementation Details
+
+### Strut Positioning
+
+Cuboid struts are **centered on the geodesic edge** (vertex position):
+- Half the strut depth extends **outward** from the sphere surface
+- Half the strut depth extends **inward** toward the dome center
+- This ensures struts are flush with the dome surface on the outer face
+
+### Hub Positioning
+
+Hubs are positioned to match strut geometry:
+- **Tapered Prism Hub**: Centered on vertex, extending `half_depth` outward and `half_depth` inward
+- **Cylindrical Core Hub**: Centered on vertex, axis along radial direction
+- Both hub styles align with strut end faces for flush connections
 
 ### The Mathematical Reality
 

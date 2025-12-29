@@ -66,15 +66,16 @@ def compute_cuboid_profile_corners(
     half_w = width / 2.0
     half_d = depth / 2.0
     
-    # Move the center point inward by half the depth so strut is centered on the edge
-    center = sub(p, scale(radial, half_d))
+    # Strut is centered on the geodesic edge (vertex position)
+    # Half extends outward (away from dome center), half extends inward
+    center = p  # Strut center is at the vertex/edge point
     
-    # Inner corners (toward dome center)
+    # Inner corners (toward dome center) - at half_d inward from center
     inner_center = sub(center, scale(radial, half_d))
     inner_left = add(inner_center, scale(side_normal, half_w))
     inner_right = sub(inner_center, scale(side_normal, half_w))
     
-    # Outer corners (away from dome center) - same width, just offset by depth
+    # Outer corners (away from dome center) - at half_d outward from center
     outer_center = add(center, scale(radial, half_d))
     outer_left = add(outer_center, scale(side_normal, half_w))
     outer_right = sub(outer_center, scale(side_normal, half_w))

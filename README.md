@@ -12,7 +12,10 @@ The **Chapel of MOOP** is a dome-shaped sanctuary constructed with a honeycomb-p
 - **Physical Description**:
   - **Dimensions**: 16 feet diameter × 8 feet tall (configurable).
   - **Structure**: Wooden frame with hexagonal/pentagonal cells (honeycomb pattern).
-  - **Frame Style**: Picture-frame struts (3"×3" rectangular cross-section) with solid triangular hub connectors at joints.
+  - **Frame Style**: Picture-frame struts (rectangular cross-section) with hub connectors at joints. Supports multiple hub styles:
+    - Tapered triangular prism hubs (flat inner face, tapered outer)
+    - Cylindrical core hubs with miter-cut struts
+    - Convex hull hubs (baseline)
   - **Features**:
     - Windows: Dyed resin encasing collected MOOP (with some protruding for tactile interaction).
     - Lighting: LED lights surrounding windows for nighttime patterns.

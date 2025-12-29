@@ -244,10 +244,10 @@ def _create_tapered_prism_hub(
     # Set up tangent plane coordinate system
     u, v = _compute_tangent_basis(radial)
     
-    # Position hub so outer face is flush with sphere surface (at vertex)
-    # Hub extends INWARD toward dome center, not outward
-    outer_center = vertex  # Outer face at sphere surface
-    inner_center = sub(vertex, scale(radial, strut_depth))  # Inner face one full depth inward
+    # Struts are centered on the geodesic edge (vertex position)
+    # Half extends outward, half extends inward. Hub matches this.
+    outer_center = add(vertex, scale(radial, half_d))  # Outer face at half_d above vertex
+    inner_center = sub(vertex, scale(radial, half_d))  # Inner face at half_d below vertex
     
     # For each strut, compute the inner edge line in 2D tangent plane coordinates
     # The inner edge is at distance hub_inset along strut direction, offset by half_width perpendicular
