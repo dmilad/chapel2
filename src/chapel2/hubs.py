@@ -26,8 +26,73 @@ from .geometry import (
     scale,
     cross,
     norm,
-    dot
+    dot,
+    compute_intersection_2d,
+    project_to_tangent_plane,
+    compute_tangent_basis,
+    point_3d_to_2d,
+    point_2d_to_3d
 )
+
+
+def calculate_hub_corner(
+    vertex: Point3D,
+    radial: Point3D,
+    d1: Point3D,
+    d2: Point3D,
+    hub_inset: float,
+    strut_depth: float
+) -> Point3D:
+    """
+    Calculate the corner of a hub between two struts.
+    This corresponds to the intersection of the two strut cut planes on the inner face.
+    """
+    # Tangent basis at vertex
+    u, v = compute_tangent_basis(radial)
+    
+    # Hub inner face center (inset by half depth)
+    inner_center = sub(vertex, scale(radial, strut_depth / 2.0))
+    
+    # For each strut, finding the cut plane line on the inner face
+    # The cut plane passes through (vertex + hub_inset * direction)
+    # And is perpendicular to direction
+    
+    # We work in 2D on the inner face plane
+    
+    # Strut 1
+    p1_3d = add(vertex, scale(d1, hub_inset))
+    p1_2d = point_3d_to_2d(p1_3d, inner_center, u, v)
+    
+    # Direction 1 projected
+    d1_proj = project_to_tangent_plane(d1, radial)
+    d1_2d = (
+        d1_proj[0]*u[0] + d1_proj[1]*u[1] + d1_proj[2]*u[2],
+        d1_proj[0]*v[0] + d1_proj[1]*v[1] + d1_proj[2]*v[2]
+    )
+    
+    # Line 1 direction is perpendicular to d1_2d
+    l1_dir = (-d1_2d[1], d1_2d[0])
+    
+    # Strut 2
+    p2_3d = add(vertex, scale(d2, hub_inset))
+    p2_2d = point_3d_to_2d(p2_3d, inner_center, u, v)
+    
+    d2_proj = project_to_tangent_plane(d2, radial)
+    d2_2d = (
+        d2_proj[0]*u[0] + d2_proj[1]*u[1] + d2_proj[2]*u[2],
+        d2_proj[0]*v[0] + d2_proj[1]*v[1] + d2_proj[2]*v[2]
+    )
+    
+    l2_dir = (-d2_2d[1], d2_2d[0])
+    
+    # Intersection
+    corner_2d = compute_intersection_2d(p1_2d, l1_dir, p2_2d, l2_dir)
+    
+    if corner_2d is None:
+        # Parallel lines? Should not happen for adjacent struts
+        return inner_center
+        
+    return point_2d_to_3d(corner_2d, inner_center, u, v)
 
 
 def compute_hub_geometry(
@@ -149,72 +214,31 @@ def _compute_edge_intersection_2d(
     p1: Tuple[float, float], d1: Tuple[float, float],
     p2: Tuple[float, float], d2: Tuple[float, float]
 ) -> Optional[Tuple[float, float]]:
-    """
-    Compute intersection of two 2D lines defined by point + t*direction.
-    Returns intersection point or None if parallel.
-    """
-    # Line 1: p1 + t*d1
-    # Line 2: p2 + s*d2
-    # Solve: p1 + t*d1 = p2 + s*d2
-    
-    det = d1[0] * d2[1] - d1[1] * d2[0]
-    if abs(det) < 1e-9:
-        return None  # Lines are parallel
-    
-    dx = p2[0] - p1[0]
-    dy = p2[1] - p1[1]
-    
-    t = (dx * d2[1] - dy * d2[0]) / det
-    
-    return (p1[0] + t * d1[0], p1[1] + t * d1[1])
+    """Legacy wrapper for compute_intersection_2d."""
+    return compute_intersection_2d(p1, d1, p2, d2)
 
 
 def _project_to_tangent_plane(
     direction: Point3D,
     radial: Point3D
 ) -> Point3D:
-    """Project a direction vector onto the tangent plane (perpendicular to radial)."""
-    # d_projected = d - (d . radial) * radial
-    dot_val = direction[0]*radial[0] + direction[1]*radial[1] + direction[2]*radial[2]
-    projected = (
-        direction[0] - dot_val * radial[0],
-        direction[1] - dot_val * radial[1],
-        direction[2] - dot_val * radial[2]
-    )
-    return normalize(projected)
+    """Legacy wrapper for project_to_tangent_plane."""
+    return project_to_tangent_plane(direction, radial)
 
 
 def _compute_tangent_basis(radial: Point3D) -> Tuple[Point3D, Point3D]:
-    """
-    Compute an orthonormal basis for the tangent plane at a vertex.
-    Returns (u, v) where u and v are perpendicular to radial and each other.
-    """
-    # Choose an arbitrary vector not parallel to radial
-    if abs(radial[2]) < 0.9:
-        arbitrary = (0.0, 0.0, 1.0)
-    else:
-        arbitrary = (1.0, 0.0, 0.0)
-    
-    # u = normalize(arbitrary x radial)
-    u = normalize(cross(arbitrary, radial))
-    # v = radial x u (already normalized since both inputs are unit)
-    v = cross(radial, u)
-    
-    return u, v
+    """Legacy wrapper for compute_tangent_basis."""
+    return compute_tangent_basis(radial)
 
 
 def _point_3d_to_2d(point: Point3D, origin: Point3D, u: Point3D, v: Point3D) -> Tuple[float, float]:
-    """Project a 3D point to 2D coordinates in the tangent plane."""
-    rel = sub(point, origin)
-    return (
-        rel[0]*u[0] + rel[1]*u[1] + rel[2]*u[2],
-        rel[0]*v[0] + rel[1]*v[1] + rel[2]*v[2]
-    )
+    """Legacy wrapper for point_3d_to_2d."""
+    return point_3d_to_2d(point, origin, u, v)
 
 
 def _point_2d_to_3d(point_2d: Tuple[float, float], origin: Point3D, u: Point3D, v: Point3D) -> Point3D:
-    """Convert 2D tangent plane coordinates back to 3D."""
-    return add(origin, add(scale(u, point_2d[0]), scale(v, point_2d[1])))
+    """Legacy wrapper for point_2d_to_3d."""
+    return point_2d_to_3d(point_2d, origin, u, v)
 
 
 def _create_tapered_prism_hub(
