@@ -80,21 +80,63 @@ def generate_dome_with_hubs(
         # Should match the hub face distance so struts meet the hub faces
         hub_inset = strut_width * 0.35
     
-    # Generate dome geometry based on style
-    if dome_style == "honeycomb":
-        vertices, faces, edges = generate_honeycomb_dome(radius_cm, frequency, portion)
-    else:
-        vertices, faces, edges = generate_geodesic_dome(radius_cm, frequency, portion)
+    # STRATEGY: Generate extended geometry to ensure boundary hubs have full context
+    # We generate a slightly larger portion to include "ghost" neighbors for the bottom ring.
+    # This allows boundary hubs to be generated as if they were interior hubs (3+ struts),
+    # preventing misshapen 2-strut "bar" hubs.
+    extended_portion = min(1.0, portion + 0.15)
     
-    # Build vertex to edges map
+    # Generate dome geometry based on style (using extended portion)
+    if dome_style == "honeycomb":
+        vertices, faces, edges = generate_honeycomb_dome(radius_cm, frequency, extended_portion, strut_width)
+    else:
+        vertices, faces, edges = generate_geodesic_dome(radius_cm, frequency, extended_portion)
+    
+    # Build vertex to edges map (includes ghost connections from extended geometry)
     vertex_to_edges = build_vertex_to_edges_map(edges)
     
-    # Limit struts if requested
-    edges_to_use = edges[:max_struts] if max_struts > 0 else edges
+    # Calculate cutoff height for the requested portion to filter active struts
+    # Note: geometry uses Y-up, and center is at (0,0,0)
+    cutoff_y = -radius_cm * (2 * portion - 1)
     
-    # Create shortened struts
+    # Cut plane for struts: slightly below the official cutoff to prevent longitudinal cuts
+    # for struts lying on the boundary.
+    cut_plane_y = cutoff_y - (strut_width / 2.0)
+    
+    tolerance = 0.1  # cm tolerance for floating point comparisons
+    
+    # Identify "active" edges for STRUTS - those that are above the cut plane
+    # We include edges that cross the boundary so we can cut them later
+    active_edges = []
+    
+    for v1_idx, v2_idx in edges:
+        v1 = vertices[v1_idx]
+        v2 = vertices[v2_idx]
+        
+        # An edge is active if AT LEAST ONE vertex is effectively above the cut plane
+        # (or if the edge crosses it, which implies at least one is above)
+        if v1[1] >= cut_plane_y - tolerance or v2[1] >= cut_plane_y - tolerance:
+            active_edges.append((v1_idx, v2_idx))
+    
+    # Limit struts if requested
+    edges_to_use = active_edges[:max_struts] if max_struts > 0 else active_edges
+    
+    # Create struts (potentially including "ghost" parts)
     strut_shapes = []
     
+    # Prepare cutter object: A huge box that removes everything below cut_plane_y
+    # Box needs to be big enough to cover the whole dome area below the cut.
+    # We create a box that extends from very low up to cut_plane_y.
+    huge_dim = radius_cm * 10
+    
+    # Calculate box dimensions
+    lx = 2 * huge_dim
+    ly = cut_plane_y - (-huge_dim)
+    lz = 2 * huge_dim
+    
+    # Create box and move it to position
+    cutter_solid = cq.Solid.makeBox(lx, ly, lz).translate(cq.Vector(-huge_dim, -huge_dim, -huge_dim))
+
     for v1_idx, v2_idx in edges_to_use:
         start = vertices[v1_idx]
         end = vertices[v2_idx]
@@ -109,22 +151,39 @@ def generate_dome_with_hubs(
                 start, end, strut_width, strut_depth,
                 hub_inset, hub_inset, dome_center
             )
-        strut_shapes.append(strut)
+        
+        # Cut the strut at the plane
+        try:
+            cut_strut = strut.cut(cutter_solid)
+            if cut_strut.isValid() and not cut_strut.Volume() < 1e-6:
+                strut_shapes.append(cut_strut)
+        except Exception:
+            # If cut fails (e.g. strut is fully outside?), skip
+            pass
     
-    # Create hubs at each vertex
+    # Create hubs at each active vertex
     hub_shapes = []
     hub_infos = []
     
-    # Find which vertices are actually used by the struts we're generating
-    used_vertices = set()
+    # Find which vertices are involved in the active structure
+    used_vertices_from_edges = set()
     for v1_idx, v2_idx in edges_to_use:
-        used_vertices.add(v1_idx)
-        used_vertices.add(v2_idx)
+        used_vertices_from_edges.add(v1_idx)
+        used_vertices_from_edges.add(v2_idx)
     
-    for v_idx in used_vertices:
+    # Only generate hubs for vertices that are strictly within the dome portion
+    # (i.e. we don't want hubs for the "ghost" ends of cut struts)
+    valid_hub_vertices = []
+    for v_idx in used_vertices_from_edges:
+        if vertices[v_idx][1] >= cutoff_y - tolerance:
+            valid_hub_vertices.append(v_idx)
+
+    for v_idx in valid_hub_vertices:
         vertex = vertices[v_idx]
         
-        # Compute hub geometry
+        # Compute hub geometry using the FULL set of edges/vertices (including extended geometry)
+        # This allows the hub generator to see "ghost" struts and create the correct 
+        # tapered prism shape even for boundary vertices that only have 2 active struts.
         hub_info = compute_hub_geometry(
             vertex, v_idx, vertices, edges, vertex_to_edges,
             strut_width, strut_depth, hub_inset, dome_center
@@ -141,13 +200,13 @@ def generate_dome_with_hubs(
     hubs_compound = cq.Compound.makeCompound(hub_shapes) if hub_shapes else cq.Compound.makeCompound([])
     
     info = {
-        'num_vertices': len(vertices),
-        'num_edges': len(edges),
+        'num_vertices': len(valid_hub_vertices),
+        'num_edges': len(active_edges),
         'num_faces': len(faces),
         'num_struts_generated': len(strut_shapes),
         'num_hubs_generated': len(hub_shapes),
-        'vertices': vertices,
-        'edges': edges,
+        'vertices': vertices, # Must return extended vertices as indices refer to them
+        'edges': active_edges, # Return only the active edges
         'faces': faces,
         'hub_infos': hub_infos,
         'radius_cm': radius_cm,
@@ -221,7 +280,7 @@ def generate_dome(
     
     # Generate dome geometry based on style
     if dome_style == "honeycomb":
-        vertices, faces, edges = generate_honeycomb_dome(radius_cm, frequency, portion)
+        vertices, faces, edges = generate_honeycomb_dome(radius_cm, frequency, portion, strut_width)
     else:
         vertices, faces, edges = generate_geodesic_dome(radius_cm, frequency, portion)
     
@@ -290,7 +349,7 @@ def generate_dome_struts_individually(
     
     # Generate dome geometry based on style
     if dome_style == "honeycomb":
-        vertices, faces, edges = generate_honeycomb_dome(radius_cm, frequency, portion)
+        vertices, faces, edges = generate_honeycomb_dome(radius_cm, frequency, portion, strut_width)
     else:
         vertices, faces, edges = generate_geodesic_dome(radius_cm, frequency, portion)
     

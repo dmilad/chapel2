@@ -475,31 +475,37 @@ def compute_dual(vertices: List[Point3D],
 
 def filter_dual_to_dome(dual_vertices: List[Point3D],
                         dual_faces: List[List[int]],
-                        portion: float) -> Tuple[List[Point3D], List[List[int]]]:
+                        portion: float,
+                        strut_width: float = 0.0) -> Tuple[List[Point3D], List[List[int]]]:
     """
     Filter dual faces (honeycomb) to keep only the upper portion.
-    Similar to filter_to_dome but for polygons.
+    
+    Args:
+        dual_vertices: Vertices of the dual mesh
+        dual_faces: Polygon faces as lists of vertex indices
+        portion: Sphere portion (0.5 = hemisphere)
+        strut_width: Width of struts (currently unused, kept for API compatibility)
+    
+    Returns:
+        Filtered (vertices, faces)
     """
     if not dual_vertices:
         return [], []
 
     # Approximate radius from first vertex
     radius = math.sqrt(sum(c*c for c in dual_vertices[0]))
+    
+    # Cutoff for the portion
     min_y = -radius * (2 * portion - 1)
 
-    # 1. Identify valid faces (centroids of faces must be above min_y)
-    # Actually, let's check if all vertices of the polygon are above a threshold?
-    # Or just check the centroid of the polygon itself.
-
+    # Identify valid faces where ALL vertices are above the threshold
     valid_face_indices = []
 
     for i, face in enumerate(dual_faces):
-        # Calculate polygon centroid
-        cy = sum(dual_vertices[v][1] for v in face) / len(face)
-
-        # Stricter check: we want the window to be fully visible?
-        # Or at least mostly visible.
-        if cy >= min_y:
+        # Check if ALL vertices of this polygon are above the threshold
+        all_above = all(dual_vertices[v][1] >= min_y for v in face)
+        
+        if all_above:
             valid_face_indices.append(i)
 
     # 2. Collect used vertices
@@ -541,9 +547,17 @@ def extract_polygon_edges(faces: List[List[int]]) -> List[Edge]:
 
 def generate_honeycomb_dome(radius: float,
                             frequency: int,
-                            portion: float = 0.5) -> Tuple[List[Point3D], List[List[int]], List[Edge]]:
+                            portion: float = 0.5,
+                            strut_width: float = 0.0) -> Tuple[List[Point3D], List[List[int]], List[Edge]]:
     """
     Generate a honeycomb (dual) geodesic dome.
+
+    Args:
+        radius: Dome radius
+        frequency: Geodesic frequency
+        portion: Sphere portion (0.5 = hemisphere)
+        strut_width: Strut width for boundary margin calculation (ensures struts
+                     at the boundary aren't cut along their length)
 
     Returns:
         (vertices, faces, edges)
@@ -565,8 +579,8 @@ def generate_honeycomb_dome(radius: float,
     # 3. Scale
     dual_verts = scale_to_radius(dual_verts, radius)
 
-    # 4. Filter
-    final_verts, final_faces = filter_dual_to_dome(dual_verts, dual_faces, portion)
+    # 4. Filter with strut width margin
+    final_verts, final_faces = filter_dual_to_dome(dual_verts, dual_faces, portion, strut_width)
 
     # 5. Edges
     final_edges = extract_polygon_edges(final_faces)
