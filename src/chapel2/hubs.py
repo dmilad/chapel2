@@ -210,35 +210,6 @@ def create_hub_solid(
         )
 
 
-def _compute_edge_intersection_2d(
-    p1: Tuple[float, float], d1: Tuple[float, float],
-    p2: Tuple[float, float], d2: Tuple[float, float]
-) -> Optional[Tuple[float, float]]:
-    """Legacy wrapper for compute_intersection_2d."""
-    return compute_intersection_2d(p1, d1, p2, d2)
-
-
-def _project_to_tangent_plane(
-    direction: Point3D,
-    radial: Point3D
-) -> Point3D:
-    """Legacy wrapper for project_to_tangent_plane."""
-    return project_to_tangent_plane(direction, radial)
-
-
-def _compute_tangent_basis(radial: Point3D) -> Tuple[Point3D, Point3D]:
-    """Legacy wrapper for compute_tangent_basis."""
-    return compute_tangent_basis(radial)
-
-
-def _point_3d_to_2d(point: Point3D, origin: Point3D, u: Point3D, v: Point3D) -> Tuple[float, float]:
-    """Legacy wrapper for point_3d_to_2d."""
-    return point_3d_to_2d(point, origin, u, v)
-
-
-def _point_2d_to_3d(point_2d: Tuple[float, float], origin: Point3D, u: Point3D, v: Point3D) -> Point3D:
-    """Legacy wrapper for point_2d_to_3d."""
-    return point_2d_to_3d(point_2d, origin, u, v)
 
 
 def _create_tapered_prism_hub(
@@ -266,7 +237,7 @@ def _create_tapered_prism_hub(
     half_d = strut_depth / 2.0
     
     # Set up tangent plane coordinate system
-    u, v = _compute_tangent_basis(radial)
+    u, v = compute_tangent_basis(radial)
     
     # Struts are centered on the geodesic edge (vertex position)
     # Half extends outward, half extends inward. Hub matches this.
@@ -281,11 +252,11 @@ def _create_tapered_prism_hub(
     
     for direction in strut_directions:
         # Project strut direction onto tangent plane
-        d_tangent = _project_to_tangent_plane(direction, radial)
+        d_tangent = project_to_tangent_plane(direction, radial)
         
         # Side normal in tangent plane (perpendicular to projected direction)
         side_normal = normalize(cross(radial, direction))
-        side_tangent = _project_to_tangent_plane(side_normal, radial)
+        side_tangent = project_to_tangent_plane(side_normal, radial)
         
         # The inner edge of this strut at the hub:
         # Start at vertex, move hub_inset along direction, then this is the strut end face
@@ -293,7 +264,7 @@ def _create_tapered_prism_hub(
         
         # Point on the inner edge (center of the inner edge of strut end face)
         inner_edge_center_3d = add(vertex, scale(direction, hub_inset))
-        inner_edge_center_2d = _point_3d_to_2d(inner_edge_center_3d, inner_center, u, v)
+        inner_edge_center_2d = point_3d_to_2d(inner_edge_center_3d, inner_center, u, v)
         
         # Direction along the inner edge (perpendicular to strut direction in tangent plane)
         edge_dir_2d = (
@@ -304,7 +275,7 @@ def _create_tapered_prism_hub(
         inner_edge_lines.append((inner_edge_center_2d, edge_dir_2d))
         
         # For outer edges, same logic but offset outward
-        outer_edge_center_2d = _point_3d_to_2d(inner_edge_center_3d, outer_center, u, v)
+        outer_edge_center_2d = point_3d_to_2d(inner_edge_center_3d, outer_center, u, v)
         outer_edge_lines.append((outer_edge_center_2d, edge_dir_2d))
     
     # Compute inner triangle vertices (intersection of adjacent edge lines)
@@ -315,7 +286,7 @@ def _create_tapered_prism_hub(
         j = (i + 1) % 3
         
         # Inner triangle vertex = intersection of edge i and edge j
-        inner_pt = _compute_edge_intersection_2d(
+        inner_pt = compute_intersection_2d(
             inner_edge_lines[i][0], inner_edge_lines[i][1],
             inner_edge_lines[j][0], inner_edge_lines[j][1]
         )
@@ -324,7 +295,7 @@ def _create_tapered_prism_hub(
         inner_triangle_2d.append(inner_pt)
         
         # Outer triangle vertex
-        outer_pt = _compute_edge_intersection_2d(
+        outer_pt = compute_intersection_2d(
             outer_edge_lines[i][0], outer_edge_lines[i][1],
             outer_edge_lines[j][0], outer_edge_lines[j][1]
         )
@@ -333,8 +304,8 @@ def _create_tapered_prism_hub(
         outer_triangle_2d.append(outer_pt)
     
     # Convert back to 3D
-    inner_triangle_3d = [_point_2d_to_3d(pt, inner_center, u, v) for pt in inner_triangle_2d]
-    outer_triangle_3d = [_point_2d_to_3d(pt, outer_center, u, v) for pt in outer_triangle_2d]
+    inner_triangle_3d = [point_2d_to_3d(pt, inner_center, u, v) for pt in inner_triangle_2d]
+    outer_triangle_3d = [point_2d_to_3d(pt, outer_center, u, v) for pt in outer_triangle_2d]
     
     # Build the tapered prism by lofting between inner and outer triangles
     try:

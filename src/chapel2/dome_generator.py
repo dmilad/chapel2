@@ -333,6 +333,14 @@ def generate_dome_with_hubs(
         windows_compound = generate_window_plates(
             vertices, faces, strut_depth, strut_width, window_plate_depth, dome_center, window_margin, hub_inset
         )
+        
+        # Cut window plates if they extend below the cut plane
+        try:
+            cut_windows = windows_compound.cut(cutter_solid)
+            if cut_windows.isValid() and cut_windows.Volume() > 1e-6:
+                windows_compound = cut_windows
+        except Exception:
+            pass
     
     info = {
         'num_vertices': len(valid_hub_vertices),
