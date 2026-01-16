@@ -1,5 +1,7 @@
 # Cuboid Struts and Joint Geometry in Geodesic Domes
 
+> **Note**: The Chapel uses **cuboid struts** with **tapered prism hubs** (Option 2). See `notebooks/chapel.ipynb` for the main configuration.
+
 This document explains the mathematical constraints and possibilities for using cuboid (rectangular box) struts in geodesic dome construction.
 
 ## The Problem

@@ -1,46 +1,68 @@
-# Chapel of MOOP (CadQuery Edition)
+# Chapel of MOOP - Geodesic Dome Generator
 
 > "Inspired by the principle of Leave No Trace (LNT), this installation promotes playful reflection on our environmental impact through massive art made from MOOP."
 
 **Chapel of MOOP** is a parametric design project for a large-scale art installation proposed for Black Rock City 2026. This repository contains the CadQuery-based design scripts for the structure.
 
+## Main Configuration
+
+The primary dome configuration is defined in `notebooks/chapel.ipynb`:
+
+| Parameter | Value |
+|-----------|-------|
+| **Style** | Honeycomb (Hex/Pent) |
+| **Radius** | 8 ft (243.8 cm) |
+| **Frequency** | 3V |
+| **Strut Cross-section** | 3.5" × 3.5" |
+| **Hub Style** | Tapered Prism |
+| **Strut Style** | Cuboid |
+| **Windows** | Hexagonal/Pentagonal Plates (2" thick) |
+
+### Generated Part Counts
+
+- **Struts**: 264 total (240 complete, 24 cut at base)
+- **Hubs**: 168 total (144 interior, 24 boundary)
+- **Windows/Panes**: 89 total (73 complete, 16 partial)
+
 ## Project Vision
 
 The **Chapel of MOOP** is a dome-shaped sanctuary constructed with a honeycomb-patterned wooden frame. Its defining feature is the collection of unique windows created by encasing "Matter Out of Place" (MOOP) in dyed epoxy resin.
 
-- **Philosophy**: To draw attention to the LNT principle and our collective environmental impact. Inside the chapel, surrounded by MOOP-filled stained glass, participants are invited to reflect on how small, discarded objects accumulate into a larger footprint.
-- **Physical Description**:
-  - **Dimensions**: 16 feet diameter × 8 feet tall (configurable).
-  - **Structure**: Wooden frame with hexagonal/pentagonal cells (honeycomb pattern).
-  - **Frame Style**: Picture-frame struts (rectangular cross-section) with hub connectors at joints. Supports multiple hub styles:
-    - Tapered triangular prism hubs (flat inner face, tapered outer)
-    - Cylindrical core hubs with miter-cut struts
-    - Convex hull hubs (baseline)
-  - **Features**:
-    - Windows: Dyed resin encasing collected MOOP (with some protruding for tactile interaction).
-    - Lighting: LED lights surrounding windows for nighttime patterns.
-    - Interior: Cushions for seating, hidden chest with MOOP-made gifts.
+- **Philosophy**: To draw attention to the LNT principle and our collective environmental impact
+- **Dimensions**: 16 feet diameter × 8 feet tall
+- **Structure**: Wooden frame with hexagonal/pentagonal cells (honeycomb pattern)
+- **Features**:
+  - Resin windows encasing collected MOOP
+  - LED lighting for nighttime effects
+  - Cushioned interior seating
 
-## The Design Tool
+## Project Structure
 
-This project uses CadQuery (via Jupyter notebooks) to parametrically generate the chapel's geometry. This allows for rapid iteration on:
-- Dome frequency (3V, 4V) and radius
-- Hexagon/pentagon window sizing (e.g., 2ft side-to-side)
-- Picture-frame strut dimensions (width × depth)
-- Solid triangular hub connectors at joints
-- Automatic cut list generation
+```
+chapel2/
+├── notebooks/
+│   └── chapel.ipynb      # Main configuration notebook
+├── src/chapel2/
+│   ├── dome_generator.py # Main dome generation functions
+│   ├── geometry.py       # Core geometry calculations
+│   ├── analysis.py       # Manufacturability analysis
+│   ├── visualization.py  # Selective visualization helpers
+│   ├── hubs.py          # Hub joint geometry
+│   ├── cuboid_struts.py # Cuboid strut generation
+│   ├── wedged_struts.py # Wedged strut generation (alternate style)
+│   └── miter_struts.py  # Miter-cut struts (alternate style)
+├── output/              # Generated STEP/STL files
+├── pyproject.toml       # Poetry configuration
+└── README.md
+```
 
-The scripts generate full 3D geometry including rectangular struts and hub connectors, ready for fabrication planning and export to STEP/STL formats.
-
-## Setup
-
-This project uses Poetry for dependency management and pyenv for Python version management.
+## Quick Start
 
 ### Prerequisites
 
 - Python 3.12+
 - Poetry
-- pyenv
+- pyenv (recommended)
 
 ### Installation
 
@@ -56,33 +78,101 @@ This project uses Poetry for dependency management and pyenv for Python version 
    poetry install
    ```
 
-## Usage
+### Usage
 
-Launch JupyterLab to start creating 3D models:
+Launch JupyterLab and open `notebooks/chapel.ipynb`:
 
 ```bash
 poetry run jupyter lab
 ```
 
-Open the example notebook in the `notebooks/` directory to see CadQuery in action.
+For visualization, use VS Code/Cursor with the OCP CAD Viewer extension:
+1. Open VS Code/Cursor
+2. Press `Cmd+Shift+P` → "OCP CAD Viewer: Open Viewer"
+3. Run notebook cells with `show()` to visualize geometry
 
-## Project Structure
+## Key Functions
 
+### Dome Generation
+
+```python
+from chapel2.dome_generator import generate_dome_with_hubs
+
+struts, hubs, windows, info = generate_dome_with_hubs(
+    radius_cm=8.0 * 30.48,      # 8 ft in cm
+    frequency=3,
+    strut_width=3.5 * 2.54,     # 3.5" in cm
+    strut_depth=3.5 * 2.54,
+    dome_style="honeycomb",
+    hub_style="tapered_prism",
+    strut_style="cuboid",
+    generate_windows=True,
+    window_plate_depth=2 * 2.54, # 2" thick
+)
 ```
-chapel2/
-├── notebooks/          # Jupyter notebooks for dome design and modeling
-│   └── example.ipynb   # CadQuery examples
-├── src/
-│   └── chapel2/       # Python modules (geometry, parameters, etc.)
-├── pyproject.toml     # Poetry configuration
-└── README.md
+
+### Selective Visualization
+
+```python
+from chapel2.visualization import separate_dome_parts, VISUALIZATION_COLORS
+
+separated = separate_dome_parts(
+    vertices=info['vertices'],
+    edges=info['edges'],
+    faces=info['faces'],
+    radius_cm=info['radius_cm'],
+    portion=info['portion'],
+    strut_width=info['strut_width'],
+    strut_depth=info['strut_depth'],
+    hub_inset=info['hub_inset'],
+    window_plate_depth=2 * 2.54,
+    window_margin=0.2,
+)
+
+# Returns dict with:
+# - complete_struts, partial_struts
+# - complete_hubs, boundary_hubs
+# - complete_panes, partial_panes
 ```
+
+### Manufacturability Analysis
+
+```python
+from chapel2.analysis import full_manufacturability_analysis, format_analysis_report
+
+analysis = full_manufacturability_analysis(
+    vertices, edges, faces,
+    radius_cm, portion, strut_width, hub_inset
+)
+print(format_analysis_report(analysis))
+```
+
+## Configuration Options
+
+### Hub Styles
+- `tapered_prism` - Flat triangular inner face (default)
+- `convex_hull` - Wraps strut corners in convex hull
+- `cylindrical_core` - Cylinder for miter-cut struts
+
+### Strut Styles
+- `cuboid` - Rectangular cross-section (default)
+- `wedged` - Trapezoidal with radial side faces
+- `miter_cut` - For cylindrical core hubs
+
+### Dome Styles
+- `honeycomb` - Hex/pent pattern (default)
+- `triangular` - Standard triangular geodesic
 
 ## Credits
 
 - **Lead Artist**: Milad
 - **Event**: Burning Man 2026 (Honoraria Letter of Intent)
 
-## Notes
+## Additional Notebooks
 
-This is a reimplementation of the Chapel of MOOP design using CadQuery instead of Fusion 360. The original Fusion 360-based implementation can be found in the [chapel](https://github.com/dmilad/chapel) repository.
+The `notebooks/` directory also contains development notebooks:
+- `dome_test.ipynb` - Testing various dome configurations
+- `hub_comparison.ipynb` - Comparing hub styles
+- `example.ipynb` - Basic CadQuery examples
+
+These are kept for reference but the main configuration is in `chapel.ipynb`.

@@ -1,5 +1,7 @@
 # Design Reference
 
+> **Note**: The primary configuration is now in `notebooks/chapel.ipynb`. This document provides reference material and parameter explanations.
+
 This document captures the key configuration options and parameters from the original Fusion 360 implementation.
 
 ## Dome Structure Types
